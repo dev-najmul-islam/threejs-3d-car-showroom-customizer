@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Supercar Showroom & Neon Underglow Customizer - Three.js</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; background: #020617; overflow: hidden; font-family: 'Inter', sans-serif; }
+        #carCanvas { width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    </style>
+</head>
+<body class="h-screen text-white flex flex-col select-none">
+
+    <!-- Top Showroom Bar -->
+    <header class="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between z-20">
+        <div class="flex items-center gap-3">
+            <span class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-lg shadow-lg">🏎️</span>
+            <div>
+                <h1 class="font-bold text-sm sm:text-base text-white">3D Cyber Supercar Studio Customizer</h1>
+                <p class="text-[10px] text-amber-400 font-mono">Real-Time Three.js Metallic Paint & Underglow</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono text-cyan-400">
+            <span>V12 HYBRID • 1,050 HP</span>
+        </div>
+    </header>
+
+    <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+        <!-- 3D Showroom Viewport -->
+        <div class="flex-1 relative min-h-[280px] md:min-h-0">
+            <canvas id="carCanvas"></canvas>
+            <div class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 px-3.5 py-1.5 rounded-2xl text-[11px] sm:text-xs text-slate-300 pointer-events-none">
+                🔄 Drag / Swipe to Rotate 360°
+            </div>
+        </div>
+
+        <!-- Customization Sidebar -->
+        <div class="w-full md:w-80 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 p-4 sm:p-5 space-y-5 sm:space-y-6 overflow-y-auto max-h-[45vh] md:max-h-none z-20">
+            <div>
+                <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 block mb-3">🎨 Metallic Body Paint</label>
+                <div class="grid grid-cols-4 gap-2.5">
+                    <button onclick="setPaint(0xe11d48)" class="h-10 rounded-xl bg-rose-600 border-2 border-white/80 hover:scale-105 transition"></button>
+                    <button onclick="setPaint(0x06b6d4)" class="h-10 rounded-xl bg-cyan-500 border-2 border-transparent hover:scale-105 transition"></button>
+                    <button onclick="setPaint(0xf59e0b)" class="h-10 rounded-xl bg-amber-500 border-2 border-transparent hover:scale-105 transition"></button>
+                    <button onclick="setPaint(0x1e293b)" class="h-10 rounded-xl bg-slate-800 border-2 border-slate-600 hover:scale-105 transition"></button>
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold uppercase tracking-wider text-purple-400 block mb-3">💡 Neon Underglow LED</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setGlow(0x06b6d4)" class="py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-bold">Cyan</button>
+                    <button onclick="setGlow(0xf43f5e)" class="py-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">Crimson</button>
+                    <button onclick="setGlow(0xa855f7)" class="py-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold">Purple</button>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-300 font-semibold">Turntable Spin Speed</span>
+                    <span id="rpmText" class="text-cyan-400 font-mono">1.0x</span>
+                </div>
+                <input id="spinInput" type="range" min="0" max="4" step="0.2" value="1" class="w-full accent-cyan-500">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('carCanvas');
+        const container = canvas.parentElement;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020617);
+
+        const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(4.5, 2.4, 5.5);
+        camera.lookAt(0, 0.3, 0);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const showroom = new THREE.Group();
+        scene.add(showroom);
+
+        // Showroom Turntable Platform & Neon Ring
+        const platMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.7, roughness: 0.2 });
+        const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.2, 64), platMat);
+        plat.position.y = -0.1;
+        showroom.add(plat);
+
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
+        const glowRing = new THREE.Mesh(new THREE.TorusGeometry(3.25, 0.04, 16, 100), glowMat);
+        glowRing.rotation.x = Math.PI / 2;
+        showroom.add(glowRing);
+
+        // 3D Low-Poly Cyber Supercar Assembly
+        const carGroup = new THREE.Group();
+        const paintMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, metalness: 0.85, roughness: 0.18 });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.95, roughness: 0.05 });
+
+        // Lower Chassis
+        const chassis = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.55, 1.85), paintMat);
+        chassis.position.y = 0.45;
+        carGroup.add(chassis);
+
+        // Aerodynamic Cockpit Cabin
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.48, 1.5), glassMat);
+        cabin.position.set(-0.15, 0.9, 0);
+        carGroup.add(cabin);
+
+        // Rear GT Spoiler Wing
+        const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 1.9), paintMat);
+        spoiler.position.set(-1.7, 0.98, 0);
+        carGroup.add(spoiler);
+
+        // Headlight & Taillight Neon Bars
+        const headLight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 1.65), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        headLight.position.set(1.91, 0.5, 0);
+        carGroup.add(headLight);
+
+        const tailLight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 1.65), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+        tailLight.position.set(-1.91, 0.55, 0);
+        carGroup.add(tailLight);
+
+        // 4 Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+        [[-1.2, 0.42, 0.95], [1.2, 0.42, 0.95], [-1.2, 0.42, -0.95], [1.2, 0.42, -0.95]].forEach(pos => {
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.rotation.x = Math.PI / 2;
+            w.position.set(...pos);
+            carGroup.add(w);
+        });
+
+        showroom.add(carGroup);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        keyLight.position.set(5, 8, 5);
+        scene.add(keyLight);
+
+        const underLight = new THREE.PointLight(0x06b6d4, 2.5, 6);
+        underLight.position.set(0, 0.2, 0);
+        showroom.add(underLight);
+
+        let dragging = false, prevX = 0, spinSpeed = 1;
+        canvas.addEventListener('pointerdown', e => { dragging = true; prevX = e.clientX; });
+        window.addEventListener('pointermove', e => {
+            if (!dragging) return;
+            showroom.rotation.y += (e.clientX - prevX) * 0.008;
+            prevX = e.clientX;
+        });
+        window.addEventListener('pointerup', () => dragging = false);
+
+        document.getElementById('spinInput').addEventListener('input', e => {
+            spinSpeed = parseFloat(e.target.value);
+            document.getElementById('rpmText').innerText = spinSpeed.toFixed(1) + 'x';
+        });
+
+        function setPaint(hex) { paintMat.color.setHex(hex); }
+        function setGlow(hex) { glowMat.color.setHex(hex); underLight.color.setHex(hex); }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!dragging) showroom.rotation.y += 0.006 * spinSpeed;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>
